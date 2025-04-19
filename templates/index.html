@@ -15,7 +15,7 @@
             transition-duration: 0.4s;
             cursor: pointer;
         }
-        
+
         .button1 {
             background-color: white; 
             color: black; 
@@ -37,25 +37,29 @@
             background-color: #008CBA;
             color: white;
         }
+
         .button3 {
-        	background-color: white;
+            background-color: white;
             color: black;
             border: 2px solid #743ac2;
-         }
+        }
+
         .button3:hover {
-         	background-color: #743ac2;
+            background-color: #743ac2;
             color: white;
-         }
+        }
+
         .button-row {
-   			 display: flex;
-   			 gap: 100px; /* Space between buttons */
- 			   margin-top: 20px;
-		}
-		body, html {
-  			 height: 100%;
-  			 margin: 10;
-		}
-          
+            display: flex;
+            gap: 100px;
+            margin-top: 20px;
+        }
+
+        body, html {
+            height: 100%;
+            margin: 0;
+        }
+
         .textbox {
             padding: 10px;
             font-size: 16px;
@@ -70,38 +74,68 @@
         .form-row {
             margin-bottom: 20px;
         }
-		.container {
+
+        .container {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center; /* vertical centering */
+            justify-content: center;
             height: 100%;
         }
     </style>
 </head>
 <body>
-	<div class = "container">
-      <h1>Student Class Registration: {{content}}</h1>
+    <div class="container">
+        {% if not role %}
+            <h1>Welcome! Please identify yourself</h1>
+            <form method="POST" action="{{ url_for('index') }}">
+                <button type="submit" name="role" value="student" class="button button1">I'm a Student</button>
+                <button type="submit" name="role" value="teacher" class="button button2">I'm a Teacher</button>
+            </form>
+        {% elif not user_id %}
+            <h1>Enter your {{ role }} ID</h1>
+            <form method="POST" action="{{ url_for('verify_id') }}" class="form-container">
+                <input type="hidden" name="role" value="{{ role }}">
+                <input type="number" name="user_id" class="textbox" placeholder="{{ role.capitalize() }} ID" required><br><br>
+                <button type="submit" class="button button3">Continue</button>
+            </form>
+        {% else %}
+            <h1>Student Class Registration</h1>
+            <form action="{{ url_for('content') }}" method="post" class="form-container">
+                <div class="form-row">
+                    <label for="crn">Class CRN:</label>
+                    <input type="number" name="crn" id="crn" class="textbox" required>
+                </div>
+                <div class="form-row">
+                    <label for="avg_gpa">Avg GPA:</label>
+                    <input type="number" step="0.1" name="avg_gpa" class="textbox" required>
+                </div>
+                <div class="form-row">
+                    <label for="bld">Building:</label>
+                    <input type="text" name="bld" class="textbox" required>
+                </div>
+                <div class="form-row">
+                    <label for="rm">Room:</label>
+                    <input type="number" name="rm" class="textbox" required>
+                </div>
+                <div class="form-row">
+                    <label for="days">Days:</label>
+                    <input type="text" name="days" class="textbox" required>
+                </div>
+                <div class="form-row">
+                    <label for="time">Time:</label>
+                    <input type="text" name="time" class="textbox" required>
+                </div>
+                <div class="form-row">
+                    <label for="tid">Teacher ID:</label>
+                    <input type="number" name="tid" class="textbox" required>
+                </div>
 
-      <div class="button-row">
-        <form action="{{ url_for('content') }}" method="post" class="form-container">
-            <div class="form-row">
-              <label for="crn">Class CRN:</label>
-              <input type="number" name="crn" id="crn" class="textbox" required>
-            </div>
-          
-            <button type="submit" name="action" value="insert" class="button button1">Insert</button>
-            <button type="submit" name="action" value="delete" class="button button2">Delete</button>
-            <button type="submit" name="update" value="update" class="button button3">Update</button>
-      </form>          
-      </div>
-     </div>
-    
+                <button type="submit" name="action" value="insert" class="button button1">Insert</button>
+                <button type="submit" name="action" value="delete" class="button button2">Delete</button>
+                <button type="submit" name="action" value="update" class="button button3">Update</button>
+            </form>
+        {% endif %}
+    </div>
 </body>
 </html>
-
-
-
-
-
-
