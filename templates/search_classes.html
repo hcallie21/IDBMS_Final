@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Search Classes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h2 {
+            text-align: center;
+        }
+        form {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            padding: 8px;
+            margin: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #04AA6D;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div style="text-align: left; margin-bottom: 20px;">
+        <a href="{{ url_for('student_dashboard') }}">
+            <button style="padding: 10px 20px; font-size: 14px;">⬅ Back to Dashboard</button>
+        </a>
+    </div>
+
+    <h2>Search for Classes</h2>
+
+    <form method="get" action="/search_classes">
+        <input type="text" name="major" placeholder="Major Abbreviation (e.g., CS)" required>
+        <input type="text" name="course_num" placeholder="Course Number (optional)">
+        <button type="submit">Search</button>
+    </form>
+
+    {% if results %}
+        <table>
+            <tr>
+                <th>Major</th>
+                <th>Course #</th>
+                <th>Course Name</th>
+                <th>Credit</th>
+                <th>Semester</th>
+                <th>Description</th>
+                <th>CRN</th>
+                <th>GPA</th>
+                <th>Building</th>
+                <th>Room</th>
+                <th>Days</th>
+                <th>Time</th>
+                <th>Action</th>
+            </tr>
+            {% for row in results %}
+            <tr>
+                <td>{{ row['MJ_ABV'] }}</td>
+                <td>{{ row['COURSE_NUM'] }}</td>
+                <td>{{ row['COURSE_NAME'] }}</td>
+                <td>{{ row['CREDIT'] }}</td>
+                <td>{{ row['SEM'] }}</td>
+                <td>{{ row['DESCRIPTION'] }}</td>
+                <td>{{ row['CRN'] }}</td>
+                <td>{{ row['AVG_GPA'] }}</td>
+                <td>{{ row['BLD'] }}</td>
+                <td>{{ row['RM'] }}</td>
+                <td>{{ row['DAYS'] }}</td>
+                <td>{{ row['TIME'] }}</td>
+                <td>
+                    <form method="post" action="/add_to_schedule">
+                        <input type="hidden" name="crn" value="{{ row['CRN'] }}">
+                        <button type="submit">Add</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p style="text-align: center;">No classes found. Try a different search.</p>
+    {% endif %}
+</body>
+</html>

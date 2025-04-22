@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>View Schedule</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h2 {
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #04AA6D;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div style="text-align: left; margin-bottom: 20px;">
+        <a href="{{ url_for('student_dashboard') }}">
+            <button style="padding: 10px 20px; font-size: 14px;">⬅ Back to Dashboard</button>
+        </a>
+    </div>
+
+    <h2>Your Current Schedule</h2>
+
+    {% if schedule %}
+        <table>
+            <tr>
+                <th>Major</th>
+                <th>Course #</th>
+                <th>Course Name</th>
+                <th>Credit</th>
+                <th>Semester</th>
+                <th>Description</th>
+                <th>CRN</th>
+                <th>Building</th>
+                <th>Room</th>
+                <th>Days</th>
+                <th>Time</th>
+                <th>Action</th>
+            </tr>
+            {% for row in schedule %}
+            <tr>
+                <td>{{ row['MJ_ABV'] }}</td>
+                <td>{{ row['COURSE_NUM'] }}</td>
+                <td>{{ row['COURSE_NAME'] }}</td>
+                <td>{{ row['CREDIT'] }}</td>
+                <td>{{ row['SEM'] }}</td>
+                <td>{{ row['DESCRIPTION'] }}</td>
+                <td>{{ row['CRN'] }}</td>
+                <td>{{ row['BLD'] }}</td>
+                <td>{{ row['RM'] }}</td>
+                <td>{{ row['DAYS'] }}</td>
+                <td>{{ row['TIME'] }}</td>
+                <td>
+                    <form method="post" action="/drop_class" onsubmit="return confirm('Are you sure you want to drop this class?');">
+                        <input type="hidden" name="crn" value="{{ row['CRN'] }}">
+                        <button type="submit" style="color: red;">Drop</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <h3 style="text-align: center; margin-top: 20px;">Total Credits: {{ total_credits }}</h3>
+    {% else %}
+        <p style="text-align: center;">You haven’t added any classes yet.</p>
+    {% endif %}
+</body>
+</html>

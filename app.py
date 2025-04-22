@@ -1,4 +1,4 @@
-# Updated app.py with student_dashboard route and login redirect fix
+# Finalized app.py with section-based class search
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 from db_operations import (
     insert_section,
@@ -30,7 +30,8 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        query = f"SELECT name FROM {role} WHERE email = :1 AND password = :2"
+        id_column = f"{role[:-1]}_ID"
+        query = f"SELECT {id_column}, name FROM {role} WHERE email = :1 AND password = :2"
 
         try:
             conn = get_connection()
@@ -42,13 +43,13 @@ def login():
 
             if result:
                 session['role'] = role
-                session['name'] = result[0]
+                session['user_id'] = result[0]
+                session['name'] = result[1]
 
-                # 🔁 Redirect based on role
                 if role == "STUDENTS":
                     return redirect(url_for('student_dashboard'))
                 else:
-                    return redirect(url_for('home'))  # placeholder for other roles
+                    return redirect(url_for('home'))
             else:
                 flash('Invalid username or password.')
         except Exception as e:
@@ -100,6 +101,157 @@ def student_dashboard():
     else:
         flash("You must be logged in as a student to view this page.")
         return redirect(url_for('login'))
+
+@app.route('/search_classes', methods=['GET'])
+def search_classes():
+    major = request.args.get('major', '').strip().upper()
+    course_num = request.args.get('course_num', '').strip()
+    results = []
+
+    print(f"🔍 Received search request - Major: '{major}', Course Num: '{course_num}'")
+
+    if major:
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+
+            query = """
+                SELECT c.MJ_ABV, c.COURSE_NUM, c.COURSE_NAME, c.CREDIT, c.SEM, c.DESCRIPTION,
+                       s.CRN, s.AVG_GPA, s.BLD, s.RM, s.DAYS, s.TIME
+                FROM Class c
+                JOIN Has_Sections hs ON UPPER(c.MJ_ABV) = UPPER(hs.MJ_ABV) AND c.COURSE_NUM = hs.COURSE_NUM
+                JOIN Section s ON hs.CRN = s.CRN
+                WHERE UPPER(c.MJ_ABV) = :major
+            """
+            params = {"major": major}
+
+            if course_num.isdigit():
+                query += " AND c.COURSE_NUM = :course_num"
+                params["course_num"] = int(course_num)
+
+            print("🧪 Executing query:")
+            print(query)
+            print("📦 With parameters:", params)
+
+            cur.execute(query, params)
+            columns = [col[0] for col in cur.description]
+            results = [dict(zip(columns, row)) for row in cur.fetchall()]
+
+            print(f"✅ Found {len(results)} result(s).")
+
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"❌ Search error: {e}")
+            flash("Could not search classes. Try again later.")
+    else:
+        flash("Please enter a major to search.")
+
+    return render_template("search_classes.html", results=results)
+
+
+@app.route('/add_to_schedule', methods=['POST'])
+def add_to_schedule():
+    student_id = session.get('user_id')
+    crn = request.form.get('crn')
+
+    print(f"📥 Attempting to add CRN {crn} for student ID {student_id}")
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check if this CRN is already in the student's schedule
+        cur.execute("""
+            SELECT 1 FROM Completed_Courses WHERE SID = :sid AND CRN = :crn
+        """, {"sid": student_id, "crn": crn})
+        exists = cur.fetchone()
+        if exists:
+            print("⚠️ CRN already exists in Completed_Courses — skipping insert.")
+            flash("⚠️ You’ve already added this class section.")
+        else:
+            cur.execute("""
+                INSERT INTO Completed_Courses (SID, CRN)
+                VALUES (:sid, :crn)
+            """, {"sid": student_id, "crn": crn})
+            conn.commit()
+            print("✅ Successfully inserted into Completed_Courses.")
+            flash("✅ Class section added to schedule!")
+
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+        print(f"❌ Add to schedule error: {e}")
+        flash("❌ Failed to add class section. Maybe it's already in your schedule.")
+
+    return redirect(url_for('search_classes'))
+
+
+@app.route('/view_schedule')
+def view_schedule():
+    if 'role' not in session or session['role'] != 'STUDENTS':
+        flash("Please log in as a student to view your schedule.")
+        return redirect(url_for('login'))
+
+    student_id = session.get('user_id')
+    schedule = []
+    total_credits = 0
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT c.MJ_ABV, c.COURSE_NUM, c.COURSE_NAME, c.CREDIT, c.SEM, c.DESCRIPTION,
+                   s.CRN, s.AVG_GPA, s.BLD, s.RM, s.DAYS, s.TIME
+            FROM Completed_Courses cc
+            JOIN Section s ON cc.CRN = s.CRN
+            JOIN Has_Sections hs ON s.CRN = hs.CRN
+            JOIN Class c ON hs.MJ_ABV = c.MJ_ABV AND hs.COURSE_NUM = c.COURSE_NUM
+            WHERE cc.SID = :sid
+        """, {"sid": student_id})
+
+        columns = [col[0] for col in cur.description]
+        schedule = [dict(zip(columns, row)) for row in cur.fetchall()]
+
+        total_credits = sum(row['CREDIT'] for row in schedule)
+
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Schedule error: {e}")
+        flash("Could not retrieve schedule.")
+
+    return render_template("view_schedule.html", schedule=schedule, total_credits=total_credits)
+
+@app.route('/drop_class', methods=['POST'])
+def drop_class():
+    student_id = session.get('user_id')
+    crn = request.form.get('crn')
+
+    if not student_id or not crn:
+        flash("❌ Could not process drop request.")
+        return redirect(url_for('view_schedule'))
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            DELETE FROM Completed_Courses
+            WHERE SID = :sid AND CRN = :crn
+        """, {"sid": student_id, "crn": crn})
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        flash("✅ Class dropped from schedule.")
+    except Exception as e:
+        print(f"❌ Drop error: {e}")
+        flash("❌ Could not drop the class. Try again later.")
+
+    return redirect(url_for('view_schedule'))
 
 @app.route('/content', methods=['POST'])
 def content():
