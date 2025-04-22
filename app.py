@@ -30,7 +30,13 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        id_column = f"{role[:-1]}_ID"
+        id_column = {
+            "STUDENTS": "STUDENT_ID",
+            "TEACHERS": "TID",
+            "ADVISORS": "AID",
+            "IT_STAFF": "IT_ID"
+        }.get(role)
+
         query = f"SELECT {id_column}, name FROM {role} WHERE email = :1 AND password = :2"
 
         try:
@@ -48,6 +54,8 @@ def login():
 
                 if role == "STUDENTS":
                     return redirect(url_for('student_dashboard'))
+                elif role == "IT_STAFF":
+                    return redirect(url_for('admin_dashboard'))
                 else:
                     return redirect(url_for('home'))
             else:
@@ -275,6 +283,205 @@ def content():
         update_section(int(crn), 999, "12:00")
 
     return redirect(url_for('home'))
+
+@app.route('/admin_dashboard')
+def admin_dashboard():
+    if 'role' in session and session['role'] == 'IT_STAFF':
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+
+            # Get all classes
+            cur.execute("SELECT MJ_ABV, COURSE_NUM, COURSE_NAME FROM Class")
+            classes = [
+                {"MJ_ABV": row[0], "COURSE_NUM": row[1], "COURSE_NAME": row[2]}
+                for row in cur.fetchall()
+            ]
+
+            # Get all pending role requests
+            cur.execute("SELECT * FROM Pending_Requests")
+            colnames = [desc[0] for desc in cur.description]
+            requests = [dict(zip(colnames, row)) for row in cur.fetchall()]
+
+            cur.close()
+            conn.close()
+
+            return render_template("admin_dashboard.html", name=session.get('name'), classes=classes, requests=requests)
+
+        except Exception as e:
+            print("Dashboard error:", e)
+            flash("Error loading admin dashboard.")
+            return redirect(url_for('home'))
+
+    flash("You must be logged in as IT Staff.")
+    return redirect(url_for('login'))
+
+@app.route('/admin/remove_class', methods=['POST'])
+def remove_class():
+    if 'role' not in session or session['role'] != 'IT_STAFF':
+        return "Access denied", 403
+
+    class_id = request.form.get('class_id')
+    if not class_id or ':' not in class_id:
+        flash("Invalid class selected.")
+        return redirect(url_for('admin_dashboard'))
+
+    major, course_num = class_id.split(':')
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM Class WHERE MJ_ABV = :major AND COURSE_NUM = :course_num
+        """, {"major": major, "course_num": course_num})
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("✅ Class removed.")
+    except Exception as e:
+        print("Remove class error:", e)
+        flash("❌ Failed to remove class.")
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/approve_request', methods=['POST'])
+def approve_request():
+    if session.get('role') != 'IT_STAFF':
+        return "Access Denied", 403
+
+    request_id = request.form.get('request_id')
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Get the request
+        cur.execute("SELECT * FROM Pending_Requests WHERE request_id = :id", {"id": request_id})
+        req = cur.fetchone()
+        if not req:
+            flash("Request not found.")
+            return redirect(url_for('admin_dashboard'))
+
+        name, email, password, role, dept = req[1], req[2], req[3], req[4], req[5]
+
+        if role == "TEACHER":
+            cur.execute("""
+                INSERT INTO Teacher (TID, NAME, EMAIL, PASSWORD)
+                VALUES (teacher_id_seq.NEXTVAL, :name, :email, :password)
+            """, {"name": name, "email": email, "password": password})
+
+        elif role == "ADVISOR":
+            cur.execute("""
+                INSERT INTO Advisor (AID, NAME, EMAIL, DEPT, PASSWORD)
+                VALUES (advisor_id_seq.NEXTVAL, :name, :email, :dept, :password)
+            """, {"name": name, "email": email, "dept": dept, "password": password})
+
+        elif role == "IT_STAFF":
+            cur.execute("""
+                INSERT INTO IT_Staff (IT_ID, NAME, EMAIL, T_ACC, US_ACC_M, SYST_CONFIG, PASSWORD)
+                VALUES (it_id_seq.NEXTVAL, :name, :email, 'Y', 'Y', 'Y', :password)
+            """, {"name": name, "email": email, "password": password})
+
+        # Remove from requests
+        cur.execute("DELETE FROM Pending_Requests WHERE request_id = :id", {"id": request_id})
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        flash(f"✅ Approved and added {name} as {role}.")
+    except Exception as e:
+        print("Approval error:", e)
+        flash("❌ Failed to approve request.")
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/decline_request', methods=['POST'])
+def decline_request():
+    if session.get('role') != 'IT_STAFF':
+        return "Access Denied", 403
+
+    request_id = request.form.get('request_id')
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM Pending_Requests WHERE request_id = :id", {"id": request_id})
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("❌ Request declined.")
+    except Exception as e:
+        print("Decline error:", e)
+        flash("❌ Failed to decline request.")
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/add_class', methods=['POST'])
+def add_class():
+    if 'role' not in session or session['role'] != 'IT_STAFF':
+        return "Access denied", 403
+
+    try:
+        class_data = {
+            "major": request.form.get('major').strip().upper(),
+            "course_num": request.form.get('course_num').zfill(2),
+            "semester": int(request.form.get('semester')),
+            "credit": int(request.form.get('credit')),
+            "name": request.form.get('name').strip(),
+            "description": request.form.get('description').strip()
+        }
+
+        print("📦 Inserting class:", class_data)
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO Class (MJ_ABV, COURSE_NUM, SEM, CREDIT, COURSE_NAME, DESCRIPTION)
+            VALUES (:major, :course_num, :semester, :credit, :name, :description)
+        """, class_data)
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("✅ Class added successfully!")
+    except Exception as e:
+        print("❌ Add class error:", e)
+        flash("❌ Failed to add class. Check your inputs.")
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/request_role', methods=['GET', 'POST'])
+def request_role():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        role = request.form.get('role')
+        dept = request.form.get('dept') if role == 'ADVISOR' else None
+
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO Pending_Requests (name, email, password, requested_role, dept)
+                VALUES (:name, :email, :password, :role, :dept)
+            """, {
+                "name": name,
+                "email": email,
+                "password": password,
+                "role": role,
+                "dept": dept
+            })
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("✅ Request submitted. Please check with IT Staff to have your request approved.")
+            return redirect(url_for('login'))
+        except Exception as e:
+            print("❌ Role request error:", e)
+            flash("❌ Something went wrong. Try again.")
+    
+    return render_template("request_role.html")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

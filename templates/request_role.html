@@ -1,0 +1,33 @@
+<h2>Request a Role</h2>
+<form method="POST">
+  <label>Name: <input name="name" required></label><br>
+  <label>Email: <input name="email" type="email" required></label><br>
+  <label>Password: <input name="password" type="password" required></label><br>
+
+  <label>Role:
+    <select name="role" id="role" onchange="showExtra()" required>
+      <option value="">-- Select Role --</option>
+      <option value="TEACHER">Teacher</option>
+      <option value="ADVISOR">Advisor</option>
+      <option value="IT_STAFF">IT Staff</option>
+    </select>
+  </label><br>
+
+  <div id="extra"></div>
+
+  <button type="submit">Submit Request</button>
+</form>
+
+<script>
+function showExtra() {
+  const role = document.getElementById("role").value;
+  const extra = document.getElementById("extra");
+  extra.innerHTML = "";
+
+  if (role === "ADVISOR") {
+    extra.innerHTML = `
+      <label>Department (optional): <input name="dept"></label><br>
+    `;
+  }
+}
+</script>

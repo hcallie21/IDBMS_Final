@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <style>
+    .section { display: none; margin-top: 20px; }
+    .btn-group button { margin-right: 10px; }
+  </style>
+  <script>
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
+      document.getElementById(id).style.display = 'block';
+    }
+  </script>
+</head>
+<body>
+  <h2>Welcome, {{ name }} 👋</h2>
+
+  <div class="btn-group">
+    <button onclick="showSection('add-class')">➕ Add Class</button>
+    <button onclick="showSection('remove-class')">➖ Remove Class</button>
+    <button onclick="showSection('view-requests')">📋 View Requests</button>
+  </div>
+
+  <!-- Add Class Section -->
+  <div id="add-class" class="section">
+    <h3>Add a New Class</h3>
+    <form method="POST" action="/admin/add_class">
+      <label>Major (MJ_ABV): <input type="text" name="major" required></label><br>
+      <label>Course Number: <input type="text" name="course_num" required></label><br>
+      <label>Semester: <input type="number" name="semester" required></label><br>
+      <label>Credits: <input type="number" name="credit" required></label><br>
+      <label>Course Name: <input type="text" name="name" required></label><br>
+      <label>Description: <textarea name="description" required></textarea></label><br>
+      <button type="submit">Add Class</button>
+    </form>
+  </div>
+
+  <!-- Remove Class Section -->
+  <div id="remove-class" class="section">
+    <h3>Remove a Class</h3>
+    <form method="POST" action="/admin/remove_class">
+      <label>Select Class to Remove:
+        <select name="class_id" required>
+          {% for c in classes %}
+            <option value="{{ c['MJ_ABV'] }}:{{ c['COURSE_NUM'] }}">{{ c['MJ_ABV'] }} {{ c['COURSE_NUM'] }} — {{ c['COURSE_NAME'] }}</option>
+          {% endfor %}
+        </select>
+      </label><br>
+      <button type="submit">Remove Class</button>
+    </form>
+  </div>
+
+  <!-- View Requests Section -->
+<div id="view-requests" class="section">
+    <h3>Pending Role Requests</h3>
+  
+    {% if requests %}
+      <table border="1" cellpadding="5">
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Requested Role</th>
+          <th>Department</th>
+          <th>Actions</th>
+        </tr>
+        {% for req in requests %}
+          <tr>
+            <td>{{ req.NAME }}</td>
+            <td>{{ req.EMAIL }}</td>
+            <td>{{ req.REQUESTED_ROLE }}</td>
+            <td>{{ req.DEPT or "—" }}</td>
+            <td>
+              <form action="/admin/approve_request" method="POST" style="display:inline;">
+                <input type="hidden" name="request_id" value="{{ req.REQUEST_ID }}">
+                <button type="submit">✅ Approve</button>
+              </form>
+              <form action="/admin/decline_request" method="POST" style="display:inline;">
+                <input type="hidden" name="request_id" value="{{ req.REQUEST_ID }}">
+                <button type="submit">❌ Decline</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p>No pending requests.</p>
+    {% endif %}
+  </div>  
+</body>
+</html>
