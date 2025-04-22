@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Teacher Dashboard</title>
+  <style>
+    table {
+      width: 90%;
+      border-collapse: collapse;
+      margin: 20px auto;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .form-container {
+      margin: 30px auto;
+      width: 90%;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <h2 style="text-align: center;">Welcome, {{ name }} 👨‍🏫</h2>
+  <p style="text-align: center;">You are currently teaching <strong>{{ section_count }}</strong> section(s).</p>
+
+  <div class="form-container">
+    <h3>Add a New Section</h3>
+    <form method="POST" action="/teacher/add_section">
+      <label>CRN: <input name="crn" required></label><br><br>
+      <label>Major Abbreviation (MJ_ABV): <input name="major" required></label><br><br>
+      <label>Course Number: <input name="course_num" required></label><br><br>
+      <label>Days: <input name="days" required></label><br><br>
+      <label>Time: <input name="time" required></label><br><br>
+      <label>Building: <input name="bld" required></label><br><br>
+      <label>Room: <input name="rm" required></label><br><br>
+      <label>Average GPA: <input name="avg_gpa" type="number" step="0.01" required></label><br><br>
+      <button type="submit">➕ Add Section</button>
+    </form>
+  </div>
+
+  <h3 style="text-align: center;">My Sections</h3>
+  {% if sections %}
+    <table>
+      <tr>
+        <th>CRN</th>
+        <th>Class</th>
+        <th>Building</th>
+        <th>Room</th>
+        <th>Days</th>
+        <th>Time</th>
+        <th>Enrolled Students</th>
+        <th>Actions</th>
+      </tr>
+      {% for s in sections %}
+        <tr>
+          <td>{{ s.CRN }}</td>
+          <td>{{ s.MJ_ABV }} {{ s.COURSE_NUM }} — {{ s.COURSE_NAME }}</td>
+          <td>{{ s.BLD }}</td>
+          <td>{{ s.RM }}</td>
+          <td>{{ s.DAYS }}</td>
+          <td>{{ s.TIME }}</td>
+          <td>
+            {% if s.students %}
+              <ul style="list-style: none; padding: 0;">
+                {% for stu in s.students %}
+                  <li>{{ stu.NAME }} ({{ stu.ACADEMIC_YEAR }})</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              0 students
+            {% endif %}
+          </td>
+          <td>
+            <form method="POST" action="/teacher/remove_section">
+              <input type="hidden" name="crn" value="{{ s.CRN }}">
+              <button type="submit">❌ Remove</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="text-align: center;">You are not currently teaching any sections.</p>
+  {% endif %}
+</body>
+</html>

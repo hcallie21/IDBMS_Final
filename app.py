@@ -32,7 +32,7 @@ def login():
 
         id_column = {
             "STUDENTS": "STUDENT_ID",
-            "TEACHERS": "TID",
+            "TEACHER": "TID",
             "ADVISORS": "AID",
             "IT_STAFF": "IT_ID"
         }.get(role)
@@ -56,6 +56,8 @@ def login():
                     return redirect(url_for('student_dashboard'))
                 elif role == "IT_STAFF":
                     return redirect(url_for('admin_dashboard'))
+                elif role == "TEACHER":
+                    return redirect(url_for('teacher_dashboard'))
                 else:
                     return redirect(url_for('home'))
             else:
@@ -482,6 +484,125 @@ def request_role():
             flash("❌ Something went wrong. Try again.")
     
     return render_template("request_role.html")
+@app.route('/teacher_dashboard')
+def teacher_dashboard():
+    if 'role' not in session or session['role'] != 'TEACHER':
+        flash("Access denied.")
+        return redirect(url_for('login'))
+
+    tid = session.get('user_id')
+    sections = []
+    section_count = 0
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Get sections this teacher teaches
+        cur.execute("""
+            SELECT s.CRN, s.BLD, s.RM, s.DAYS, s.TIME, s.AVG_GPA,
+                   c.MJ_ABV, c.COURSE_NUM, c.COURSE_NAME
+            FROM Section s
+            JOIN Has_Sections hs ON s.CRN = hs.CRN
+            JOIN Class c ON hs.MJ_ABV = c.MJ_ABV AND hs.COURSE_NUM = c.COURSE_NUM
+            WHERE s.TID = :tid
+        """, {"tid": tid})
+
+        results = cur.fetchall()
+        columns = [desc[0] for desc in cur.description]
+
+        for row in results:
+            section = dict(zip(columns, row))
+
+            # Get students enrolled in this section
+            cur.execute("""
+                SELECT stu.NAME, stu.ACADEMIC_YEAR
+                FROM Completed_Courses cc
+                JOIN STUDENTS stu ON cc.SID = stu.STUDENT_ID
+                WHERE cc.CRN = :crn
+            """, {"crn": section["CRN"]})
+            section["students"] = [
+                {"NAME": r[0], "ACADEMIC_YEAR": r[1]} for r in cur.fetchall()
+            ]
+
+            sections.append(section)
+
+        section_count = len(sections)
+
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print("Teacher dashboard error:", e)
+        flash("❌ Failed to load your dashboard.")
+
+    return render_template("teacher_dashboard.html", name=session.get('name'), sections=sections, section_count=section_count)
+@app.route('/teacher/add_section', methods=['POST'])
+def add_section():
+    if session.get('role') != 'TEACHER':
+        return "Access Denied", 403
+
+    try:
+        crn = int(request.form.get('crn'))
+        major = request.form.get('major').upper().strip()
+        course_num = request.form.get('course_num').zfill(2)
+        days = request.form.get('days')
+        time = request.form.get('time')
+        bld = request.form.get('bld')
+        rm = int(request.form.get('rm'))
+        avg_gpa = float(request.form.get('avg_gpa'))
+        tid = session.get('user_id')
+
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Insert into Section
+        cur.execute("""
+            INSERT INTO Section (CRN, AVG_GPA, BLD, RM, DAYS, TIME, TID)
+            VALUES (:crn, :avg_gpa, :bld, :rm, :days, :time, :tid)
+        """, {
+            "crn": crn, "avg_gpa": avg_gpa, "bld": bld,
+            "rm": rm, "days": days, "time": time, "tid": tid
+        })
+
+        # Link to Class
+        cur.execute("""
+            INSERT INTO Has_Sections (MJ_ABV, COURSE_NUM, CRN)
+            VALUES (:major, :course_num, :crn)
+        """, {"major": major, "course_num": course_num, "crn": crn})
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("✅ Section added successfully.")
+    except Exception as e:
+        print("Add section error:", e)
+        flash("❌ Failed to add section.")
+
+    return redirect(url_for('teacher_dashboard'))
+@app.route('/teacher/remove_section', methods=['POST'])
+def remove_section():
+    if session.get('role') != 'TEACHER':
+        return "Access Denied", 403
+
+    crn = request.form.get('crn')
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Delete from Has_Sections and Section
+        cur.execute("DELETE FROM Has_Sections WHERE CRN = :crn", {"crn": crn})
+        cur.execute("DELETE FROM Section WHERE CRN = :crn", {"crn": crn})
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash("✅ Section removed.")
+    except Exception as e:
+        print("Remove section error:", e)
+        flash("❌ Failed to remove section.")
+
+    return redirect(url_for('teacher_dashboard'))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
