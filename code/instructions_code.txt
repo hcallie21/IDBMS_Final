@@ -1,0 +1,21 @@
+GUI/interface design files 
+
+MUST: 
+    System Functionality (50%)
+        - implement comprehensive functionalities to cater to diverse end-user types
+        - enforce database access solely through application
+    Reporting Facility (20%)
+        - create statistical reports relevant to applicaiotn
+        - produce detailed statistical reports for different sections
+        - high level reports for managers
+    GUI (15%)
+        - have a usable interface focused on operations, not tables, suitable for end-users w/ no database expertise
+        - ensure user-friendly naming conventions instead of relying on IDs
+    User Support (15%)
+        - have authentication w/ multiple user types
+        - no hardcoded passwords, store in database table
+        - enable user sign up, login/logout, + password changes
+        - admin privileges
+        - recommend encryption for passwords
+
+    
