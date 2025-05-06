@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Advisor Dashboard</title>
+</head>
+<body>
+    {% include 'header.html' %}
+    <h2>👩‍🏫 Welcome, {{ name }} (Advisor)</h2>
+
+    <h3>📋 Select a Student to View Their Schedule</h3>
+    <form method="GET" action="{{ url_for('advisor_dashboard') }}">
+        <label for="sid">Student:</label>
+        <select name="sid" required>
+            {% for sid, sname in advisees %}
+                <option value="{{ sid }}" {% if sid|string == selected_sid %}selected{% endif %}>
+                    {{ sname }} (ID: {{ sid }})
+                </option>
+            {% endfor %}
+        </select>
+        <button type="submit">View Schedule</button>
+    </form>
+
+    {% if student_schedule %}
+        <h3>📚 Schedule for Student ID: {{ selected_sid }}</h3>
+        <table border="1" cellpadding="6">
+            <tr>
+                <th>Major</th>
+                <th>Course #</th>
+                <th>Name</th>
+                <th>Credit</th>
+                <th>CRN</th>
+                <th>Building</th>
+                <th>Room</th>
+                <th>Days</th>
+                <th>Time</th>
+            </tr>
+            {% for row in student_schedule %}
+                <tr>
+                    {% for col in row %}
+                        <td>{{ col }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+    {% elif selected_sid %}
+        <p>No classes found for this student.</p>
+    {% endif %}
+</body>
+</html>

@@ -35,7 +35,7 @@ def login():
         id_column = {
             "STUDENTS": "STUDENT_ID",
             "TEACHER": "TID",
-            "ADVISORS": "AID",
+            "ADVISOR": "AID",
             "IT_STAFF": "IT_ID"
         }.get(role)
 
@@ -60,6 +60,8 @@ def login():
                     return redirect(url_for('admin_dashboard'))
                 elif role == "TEACHER":
                     return redirect(url_for('teacher_dashboard'))
+                elif role == "ADVISOR":
+                    return redirect(url_for('advisor_dashboard'))
                 else:
                     return redirect(url_for('home'))
             else:
@@ -737,6 +739,57 @@ def change_password():
             flash("❌ Failed to change password. Please try again.")
 
     return render_template("change_password.html")
+
+@app.route('/advisor_dashboard')
+def advisor_dashboard():
+    if 'role' not in session or session['role'] != 'ADVISOR':
+        flash("Access denied.")
+        return redirect(url_for('login'))
+
+    aid = session.get('user_id')
+    selected_sid = request.args.get('sid')
+    advisees = []
+    student_schedule = []
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # 🔍 Get all students advised by this advisor
+        cur.execute("""
+            SELECT s.STUDENT_ID, s.NAME
+            FROM STUDENTS s
+            JOIN ADVISES a ON s.STUDENT_ID = a.SID
+            WHERE a.AID = :aid
+        """, {"aid": aid})
+        advisees = cur.fetchall()
+
+        if selected_sid:
+            cur.execute("""
+                SELECT c.MJ_ABV, c.COURSE_NUM, c.COURSE_NAME, c.CREDIT,
+                       s.CRN, s.BLD, s.RM, s.DAYS, s.TIME
+                FROM Completed_Courses cc
+                JOIN Section s ON cc.CRN = s.CRN
+                JOIN Has_Sections hs ON s.CRN = hs.CRN
+                JOIN Class c ON hs.MJ_ABV = c.MJ_ABV AND hs.COURSE_NUM = c.COURSE_NUM
+                WHERE cc.SID = :sid
+            """, {"sid": selected_sid})
+            student_schedule = cur.fetchall()
+
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print("Advisor dashboard error:", e)
+        flash("Could not load advisor dashboard.")
+
+    return render_template(
+        "advisor_dashboard.html",
+        name=session.get('name'),
+        advisees=advisees,
+        selected_sid=selected_sid,
+        student_schedule=student_schedule
+    )
+
 
 
 if __name__ == '__main__':

@@ -1,1 +1,0 @@
-include a schema file containing the SQL necessary to create the database schema
