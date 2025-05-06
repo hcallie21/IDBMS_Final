@@ -1,0 +1,14 @@
+Thanh Ngo - Phase 1, Phase 2 Relationships and their Descriptions,
+     Phase 3 - initial Relational schema
+
+Naymur Ali - Phase 1, Phase 2 System Users and Privileges, 
+    Phase 3 - updated ER diagram
+
+Callie Houston - Phase 1, Phase 2 Entities and their Descriptions, 
+    Phase 3 - ER diagram Initial, feedback, + how addressed, Phase 4
+    Normalized relational schema, midterm presentation + final presentation, 
+    phase 5 - front end html (some of), Phase 6 - documentation
+
+Dylan Grim - Phase 1, Phase 3 Relational Diagram constraints, 
+    Phase 4 - SQL connection + populated data, Final presentation demo, 
+    Phase 5 - backend sql connection + front end, Phase 6 - ensure meet requirements / demo video
