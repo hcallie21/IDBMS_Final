@@ -1,0 +1,10 @@
+<!-- templates/header.html -->
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>Welcome, {{ name }} 👋</h2>
+    <div>
+      <a href="{{ url_for('change_password') }}">🔒 Change Password</a> |
+      <a href="{{ url_for('logout') }}">🚪 Sign Out</a>
+    </div>
+  </div>
+  <hr>
+  

@@ -11,15 +11,22 @@
       document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
       document.getElementById(id).style.display = 'block';
     }
+  
+    window.onload = function () {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tid') || params.get('crn')) {
+        showSection('reports');  // Automatically show the reports section
+      }
+    };
   </script>
 </head>
 <body>
-  <h2>Welcome, {{ name }} 👋</h2>
-
+  {% include 'header.html' %}
   <div class="btn-group">
     <button onclick="showSection('add-class')">➕ Add Class</button>
     <button onclick="showSection('remove-class')">➖ Remove Class</button>
     <button onclick="showSection('view-requests')">📋 View Requests</button>
+    <button onclick="showSection('reports')">📊 View Reports</button>
   </div>
 
   <!-- Add Class Section -->
@@ -52,9 +59,8 @@
   </div>
 
   <!-- View Requests Section -->
-<div id="view-requests" class="section">
+  <div id="view-requests" class="section">
     <h3>Pending Role Requests</h3>
-  
     {% if requests %}
       <table border="1" cellpadding="5">
         <tr>
@@ -86,6 +92,75 @@
     {% else %}
       <p>No pending requests.</p>
     {% endif %}
-  </div>  
+  </div>
+
+  <!-- Reports Section -->
+  <div id="reports" class="section">
+    <h3>📊 Reports</h3>
+
+    <h4>🧑‍🏫 Teacher Statistics</h4>
+    <form method="GET" action="/admin_dashboard">
+      <label for="tid">Select a Teacher:</label>
+      <select name="tid">
+        {% for teacher in teachers %}
+          <option value="{{ teacher.TID }}" {% if teacher.TID|string == selected_teacher %}selected{% endif %}>
+            {{ teacher.NAME }} ({{ teacher.EMAIL }})
+          </option>
+        {% endfor %}
+      </select>
+      <button type="submit">View Report</button>
+    </form>
+
+    {% if teacher_stats %}
+  <h5>Sections taught by selected teacher</h5>
+  <table border="1" cellpadding="6">
+    <tr><th>CRN</th><th># Students</th><th>Avg GPA</th></tr>
+    {% set total_students = 0 %}
+    {% set gpa_sum = 0 %}
+    {% set section_count = 0 %}
+    {% for row in teacher_stats %}
+      <tr>
+        <td>{{ row[0] }}</td>
+        <td>{{ row[1] }}</td>
+        <td>{{ row[2] }}</td>
+      </tr>
+      {% set total_students = total_students + row[1] %}
+      {% set gpa_sum = gpa_sum + row[2] %}
+      {% set section_count = section_count + 1 %}
+    {% endfor %}
+  </table>
+{% endif %}
+
+
+
+    <h4>📘 Section-Specific Report</h4>
+    <form method="GET" action="/admin_dashboard">
+      <label for="crn">Select CRN:</label>
+      <select name="crn">
+        {% for crn in sections %}
+          <option value="{{ crn }}" {% if crn|string == selected_crn %}selected{% endif %}>{{ crn }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">View Students</button>
+    </form>
+
+    {% if section_stats %}
+      <h5>Students in Section {{ selected_crn }}</h5>
+      <table border="1" cellpadding="6">
+        <tr><th>Name</th><th>Academic Year</th></tr>
+        {% for student in section_stats %}
+          <tr><td>{{ student[0] }}</td><td>{{ student[1] }}</td></tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+
+    <h4>📈 High-Level Summary</h4>
+    <ul>
+      <li>Total Students: {{ overview.total_students }}</li>
+      <li>Total Classes: {{ overview.total_classes }}</li>
+      <li>Total Teachers: {{ overview.total_teachers }}</li>
+      <li>Average GPA across all Sections: {{ overview.average_gpa }}</li>
+    </ul>
+  </div>
 </body>
 </html>

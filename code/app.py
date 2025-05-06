@@ -1,5 +1,7 @@
 # Finalized app.py with section-based class search
 from flask import Flask, render_template, redirect, url_for, request, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from db_operations import (
     insert_section,
     delete_section,
@@ -28,7 +30,7 @@ def login():
     if request.method == 'POST':
         role = request.form.get('role')
         email = request.form.get('email')
-        password = request.form.get('password')
+        raw_password = request.form.get('password')
 
         id_column = {
             "STUDENTS": "STUDENT_ID",
@@ -37,17 +39,17 @@ def login():
             "IT_STAFF": "IT_ID"
         }.get(role)
 
-        query = f"SELECT {id_column}, name FROM {role} WHERE email = :1 AND password = :2"
+        query = f"SELECT {id_column}, name, password FROM {role} WHERE email = :1"
 
         try:
             conn = get_connection()
             cur = conn.cursor()
-            cur.execute(query, (email, password))
+            cur.execute(query, (email,))
             result = cur.fetchone()
             cur.close()
             conn.close()
 
-            if result:
+            if result and check_password_hash(result[2], raw_password):
                 session['role'] = role
                 session['user_id'] = result[0]
                 session['name'] = result[1]
@@ -68,15 +70,17 @@ def login():
 
     return render_template("login.html")
 
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         name = request.form.get('name')
         email = request.form.get('email')
-        password = request.form.get('password')
+        raw_password = request.form.get('password')
+        password = generate_password_hash(raw_password)
         year = request.form.get('year')
 
-        if len(password) <= 5:
+        if len(raw_password) <= 5:
             flash("Password must be longer than 5 characters.")
             return redirect(url_for('register'))
 
@@ -90,8 +94,11 @@ def register():
                 conn.close()
                 return redirect(url_for('register'))
 
-            cur.execute("INSERT INTO STUDENTS (STUDENT_ID, name, email, password, academic_year) VALUES (student_id_seq.NEXTVAL, :1, :2, :3, :4)",
-                        (name, email, password, year))
+            cur.execute("""
+                INSERT INTO STUDENTS (STUDENT_ID, name, email, password, academic_year)
+                VALUES (student_id_seq.NEXTVAL, :1, :2, :3, :4)
+            """, (name, email, password, year))
+
             conn.commit()
             cur.close()
             conn.close()
@@ -103,6 +110,7 @@ def register():
             flash("Something went wrong. Try again.")
 
     return render_template("register.html")
+
 
 @app.route('/student_dashboard')
 def student_dashboard():
@@ -305,10 +313,82 @@ def admin_dashboard():
             colnames = [desc[0] for desc in cur.description]
             requests = [dict(zip(colnames, row)) for row in cur.fetchall()]
 
+            # High-level overview stats
+            cur.execute("SELECT COUNT(*) FROM STUDENTS")
+            total_students = cur.fetchone()[0]
+
+            cur.execute("SELECT COUNT(*) FROM TEACHER")
+            total_teachers = cur.fetchone()[0]
+
+            cur.execute("SELECT COUNT(*) FROM CLASS")
+            total_classes = cur.fetchone()[0]
+
+            cur.execute("SELECT AVG(AVG_GPA) FROM SECTION")
+            avg_gpa = cur.fetchone()[0]
+
+            overview = {
+                "total_students": total_students,
+                "total_teachers": total_teachers,
+                "total_classes": total_classes,
+                "average_gpa": round(avg_gpa, 2) if avg_gpa else 0
+            }
+
+            # All teachers for reports
+            cur.execute("SELECT TID, NAME, EMAIL FROM Teacher")
+            teachers = [{"TID": row[0], "NAME": row[1], "EMAIL": row[2]} for row in cur.fetchall()]
+
+            # All sections for reports
+            cur.execute("SELECT CRN FROM Section")
+            sections = [r[0] for r in cur.fetchall()]
+
+            # Optional: Check for selected teacher or section for reporting
+            selected_teacher = request.args.get('tid')
+            selected_crn = request.args.get('crn')
+            teacher_stats = []
+            section_stats = []
+
+            if selected_teacher:
+                cur.execute("""
+                    SELECT 
+                        s.CRN,
+                        COUNT(cc.SID),
+                        ROUND(AVG(s.AVG_GPA), 2)
+                    FROM 
+                        Section s
+                    LEFT JOIN 
+                        Completed_Courses cc ON s.CRN = cc.CRN
+                    WHERE 
+                        s.TID = :tid
+                    GROUP BY 
+                        s.CRN
+    """, {"tid": selected_teacher})
+                teacher_stats = cur.fetchall()
+
+            if selected_crn:
+                cur.execute("""
+                    SELECT stu.NAME, stu.ACADEMIC_YEAR
+                    FROM Completed_Courses cc
+                    JOIN STUDENTS stu ON cc.SID = stu.STUDENT_ID
+                    WHERE cc.CRN = :crn
+                """, {"crn": selected_crn})
+                section_stats = cur.fetchall()
+
             cur.close()
             conn.close()
 
-            return render_template("admin_dashboard.html", name=session.get('name'), classes=classes, requests=requests)
+            return render_template(
+                "admin_dashboard.html",
+                name=session.get('name'),
+                classes=classes,
+                requests=requests,
+                overview=overview,
+                teachers=teachers,
+                sections=sections,
+                selected_teacher=selected_teacher,
+                selected_crn=selected_crn,
+                teacher_stats=teacher_stats,
+                section_stats=section_stats
+            )
 
         except Exception as e:
             print("Dashboard error:", e)
@@ -457,7 +537,8 @@ def request_role():
     if request.method == 'POST':
         name = request.form.get('name')
         email = request.form.get('email')
-        password = request.form.get('password')
+        raw_password = request.form.get('password')
+        password = generate_password_hash(raw_password)
         role = request.form.get('role')
         dept = request.form.get('dept') if role == 'ADVISOR' else None
 
@@ -482,8 +563,10 @@ def request_role():
         except Exception as e:
             print("❌ Role request error:", e)
             flash("❌ Something went wrong. Try again.")
-    
+
     return render_template("request_role.html")
+
+
 @app.route('/teacher_dashboard')
 def teacher_dashboard():
     if 'role' not in session or session['role'] != 'TEACHER':
@@ -603,6 +686,58 @@ def remove_section():
         flash("❌ Failed to remove section.")
 
     return redirect(url_for('teacher_dashboard'))
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash("Signed out successfully.")
+    return redirect(url_for('home'))
+
+@app.route('/change_password', methods=['GET', 'POST'])
+def change_password():
+    if 'user_id' not in session or 'role' not in session:
+        flash("You must be logged in to change your password.")
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        current_pw = request.form.get('current_password')
+        new_pw = request.form.get('new_password')
+        user_id = session['user_id']
+        role = session['role']
+
+        id_column = {
+            "STUDENTS": "STUDENT_ID",
+            "TEACHER": "TID",
+            "ADVISORS": "AID",
+            "IT_STAFF": "IT_ID"
+        }.get(role)
+
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute(f"SELECT PASSWORD FROM {role} WHERE {id_column} = :id", {"id": user_id})
+            result = cur.fetchone()
+
+            if result and check_password_hash(result[0], current_pw):
+                hashed_new_pw = generate_password_hash(new_pw)
+                cur.execute(f"UPDATE {role} SET PASSWORD = :new_pw WHERE {id_column} = :id", {
+                    "new_pw": hashed_new_pw,
+                    "id": user_id
+                })
+                conn.commit()
+                flash("✅ Password updated successfully. Please log in again.")
+                session.clear()
+                return redirect(url_for('login'))
+            else:
+                flash("❌ Incorrect current password.")
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print("Password change error:", e)
+            flash("❌ Failed to change password. Please try again.")
+
+    return render_template("change_password.html")
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
