@@ -1,6 +1,5 @@
 import oracledb
 
-# Initialize Oracle Instant Client (adjust path if needed)
 oracledb.init_oracle_client(lib_dir=r"C:\Users\dylan\Downloads\instantclient-basic-windows.x64-23.7.0.25.01\instantclient_23_7")
 
 # Connection settings

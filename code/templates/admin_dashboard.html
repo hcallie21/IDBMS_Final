@@ -15,7 +15,7 @@
     window.onload = function () {
       const params = new URLSearchParams(window.location.search);
       if (params.get('tid') || params.get('crn')) {
-        showSection('reports');  // Automatically show the reports section
+        showSection('reports');
       }
     };
   </script>
@@ -29,7 +29,6 @@
     <button onclick="showSection('reports')">📊 View Reports</button>
   </div>
 
-  <!-- Add Class Section -->
   <div id="add-class" class="section">
     <h3>Add a New Class</h3>
     <form method="POST" action="/admin/add_class">
@@ -43,7 +42,6 @@
     </form>
   </div>
 
-  <!-- Remove Class Section -->
   <div id="remove-class" class="section">
     <h3>Remove a Class</h3>
     <form method="POST" action="/admin/remove_class">
@@ -58,7 +56,6 @@
     </form>
   </div>
 
-  <!-- View Requests Section -->
   <div id="view-requests" class="section">
     <h3>Pending Role Requests</h3>
     {% if requests %}
@@ -94,7 +91,6 @@
     {% endif %}
   </div>
 
-  <!-- Reports Section -->
   <div id="reports" class="section">
     <h3>📊 Reports</h3>
 

@@ -1,4 +1,4 @@
-# Finalized app.py with section-based class search
+
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -181,7 +181,7 @@ def add_to_schedule():
         conn = get_connection()
         cur = conn.cursor()
 
-        # Check if this CRN is already in the student's schedule
+        
         cur.execute("""
             SELECT 1 FROM Completed_Courses WHERE SID = :sid AND CRN = :crn
         """, {"sid": student_id, "crn": crn})
@@ -315,7 +315,7 @@ def admin_dashboard():
             colnames = [desc[0] for desc in cur.description]
             requests = [dict(zip(colnames, row)) for row in cur.fetchall()]
 
-            # High-level overview stats
+            # High level overview stats
             cur.execute("SELECT COUNT(*) FROM STUDENTS")
             total_students = cur.fetchone()[0]
 
@@ -343,7 +343,6 @@ def admin_dashboard():
             cur.execute("SELECT CRN FROM Section")
             sections = [r[0] for r in cur.fetchall()]
 
-            # Optional: Check for selected teacher or section for reporting
             selected_teacher = request.args.get('tid')
             selected_crn = request.args.get('crn')
             teacher_stats = []
@@ -755,7 +754,7 @@ def advisor_dashboard():
         conn = get_connection()
         cur = conn.cursor()
 
-        # 🔍 Get all students advised by this advisor
+        
         cur.execute("""
             SELECT s.STUDENT_ID, s.NAME
             FROM STUDENTS s
